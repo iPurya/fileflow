@@ -12,3 +12,9 @@ python main.py --help
 ```powershell
 python main.py analyze downloads --largest 5
 ```
+
+## Tests
+
+```powershell
+python -B -m unittest discover -s tests -v
+```
