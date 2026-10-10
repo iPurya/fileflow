@@ -6,3 +6,9 @@ No external packages are needed.
 ```powershell
 python main.py --help
 ```
+
+## Analyze
+
+```powershell
+python main.py analyze downloads --largest 5
+```
