@@ -54,6 +54,7 @@ class FeatureTests(FileFlowTestCase):
             (),
             ("analyze", str(self.folder / "missing")),
             ("analyze", str(self.folder), "--largest", "0"),
+            ("download", "https://example.com/file", "--workers", "0"),
         ]
         for arguments in cases:
             with self.subTest(arguments=arguments):
@@ -154,6 +155,31 @@ class DownloadTests(FileFlowTestCase):
         self.assertEqual(existing.read_bytes(), b"keep")
         self.assertEqual(saved.name, "file (2).bin")
         self.assertEqual(saved.read_bytes(), b"payload:/file.bin")
+
+    def test_batch_download_respects_worker_limit_and_unique_names(self):
+        urls = self.folder / "urls.txt"
+        urls.write_text(
+            "\n# A batch\n"
+            + "\n".join(f"{self.base_url}/{number}/file.bin" for number in range(6)),
+            encoding="utf-8",
+        )
+        with DownloadHandler.lock:
+            DownloadHandler.maximum = 0
+        output = self.folder / "downloads"
+        code, text, error = self.invoke(
+            "download",
+            "--from-file",
+            str(urls),
+            "--output",
+            str(output),
+            "--workers",
+            "3",
+        )
+        self.assertEqual(code, 0, error)
+        self.assertEqual(len(list(output.iterdir())), 6)
+        self.assertLessEqual(DownloadHandler.maximum, 3)
+        self.assertGreaterEqual(DownloadHandler.maximum, 2)
+        self.assertEqual(len({path.read_bytes() for path in output.iterdir()}), 6)
 
 
 if __name__ == "__main__":

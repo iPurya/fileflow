@@ -11,6 +11,7 @@ python main.py --help
 
 ```powershell
 python main.py download "https://example.com/file.zip" --output downloads
+python main.py download --from-file urls.txt --workers 3
 ```
 
 ## Organize

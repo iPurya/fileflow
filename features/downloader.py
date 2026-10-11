@@ -1,12 +1,14 @@
-"""Download files from URLs."""
+"""Download individual URLs or a batch using a limited thread pool."""
 
 import re
 import shutil
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.client import HTTPException
 from urllib.error import HTTPError
 from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
+
 from features.common import unique_path, validate_filename
 
 
@@ -50,13 +52,32 @@ def download_file(url, folder):
 
 
 def run(args):
+    urls = list(args.urls)
+    if args.from_file:
+        lines = args.from_file.read_text(encoding="utf-8-sig").splitlines()
+        urls.extend(
+            line.strip()
+            for line in lines
+            if line.strip() and not line.strip().startswith("#")
+        )
+    if not urls:
+        raise ValueError("Provide a URL or a non-empty --from-file text file")
+
     folder = args.output.expanduser().resolve()
     folder.mkdir(parents=True, exist_ok=True)
     failures = 0
-    for url in args.urls:
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        jobs = {pool.submit(download_file, url, folder): url for url in urls}
         try:
-            print(f"Downloaded: {download_file(url, folder)}")
-        except (OSError, ValueError, HTTPException) as error:
-            failures += 1
-            print(f"Failed: {url} ({error})", file=sys.stderr)
+            for job in as_completed(jobs):
+                try:
+                    print(f"Downloaded: {job.result()}")
+                except (OSError, ValueError, HTTPException) as error:
+                    failures += 1
+                    print(f"Failed: {jobs[job]} ({error})", file=sys.stderr)
+        except KeyboardInterrupt:
+            for job in jobs:
+                job.cancel()
+            raise
+    print(f"Downloaded {len(urls) - failures} file(s); failed {failures}.")
     return 1 if failures else 0
