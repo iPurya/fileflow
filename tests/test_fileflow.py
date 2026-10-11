@@ -55,6 +55,37 @@ class FeatureTests(FileFlowTestCase):
             with self.subTest(arguments=arguments):
                 self.assertEqual(self.invoke(*arguments)[0], 2)
 
+    def test_organize_preview_and_apply(self):
+        image = self.write("photo.JPG", b"new image")
+        original = self.write("Images/photo.JPG", b"existing image")
+        self.write("clip.mp4")
+        self.write("notes.pdf")
+        self.write("song.mp3")
+        self.write("unknown.bin")
+        nested = self.write("nested/leave.txt")
+        self.assertEqual(self.invoke("organize", str(self.folder))[0], 0)
+        self.assertTrue(image.exists())
+        self.assertEqual(self.invoke("organize", str(self.folder), "--apply")[0], 0)
+        self.assertFalse(image.exists())
+        self.assertEqual(original.read_bytes(), b"existing image")
+        self.assertEqual(
+            (self.folder / "Images/photo (2).JPG").read_bytes(), b"new image"
+        )
+        for name in (
+            "Videos/clip.mp4",
+            "Documents/notes.pdf",
+            "Audio/song.mp3",
+            "Other/unknown.bin",
+        ):
+            self.assertTrue((self.folder / name).is_file())
+        self.assertTrue(nested.exists())
+
+    def test_organize_category_conflict_changes_nothing(self):
+        image = self.write("picture.png")
+        self.write("Images", b"a file, not a folder")
+        self.assertEqual(self.invoke("organize", str(self.folder), "--apply")[0], 1)
+        self.assertTrue(image.exists())
+
     def test_analyzer_is_recursive_and_sorts_by_size(self):
         self.write("small.TXT", b"a")
         large = self.write("nested/large.txt", b"x" * 100)
