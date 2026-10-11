@@ -62,6 +62,18 @@ def validate_filename(name):
         raise ValueError(f"Invalid filename: {name!r}")
 
 
+def confirm_delete(count):
+    """Require explicit confirmation before permanent deletion."""
+    try:
+        answer = input(f"Permanently delete {count} item(s)? Type yes: ")
+    except EOFError:
+        answer = ""
+    if answer.strip().lower() != "yes":
+        print("Cancelled. No files were deleted.")
+        return False
+    return True
+
+
 def check_inside(path, folder):
     """Keep destructive operations inside the selected folder."""
     resolved = path.resolve()

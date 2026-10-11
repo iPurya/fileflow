@@ -27,8 +27,17 @@ python main.py organize downloads --apply
 python main.py analyze downloads --largest 5
 ```
 
+## Empty
+
+```powershell
+python main.py empty downloads
+python main.py empty downloads --delete
+```
+
 ## Tests
 
 ```powershell
 python -B -m unittest discover -s tests -v
 ```
+
+Deletion requires typing yes. Deleted files do not go to the Recycle Bin.

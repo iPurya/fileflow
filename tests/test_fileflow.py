@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
-from features import analyzer
+from features import analyzer, empty
 from features.downloader import download_file
 from main import main
 
@@ -44,7 +44,7 @@ class FeatureTests(FileFlowTestCase):
     def test_help_and_version(self):
         code, output, error = self.invoke("--help")
         self.assertEqual(code, 0)
-        for command in ("download", "organize", "analyze"):
+        for command in ("download", "organize", "analyze", "empty"):
             self.assertIn(command, output)
             self.assertEqual(self.invoke(command, "--help")[0], 0)
         self.assertEqual(error, "")
@@ -109,6 +109,18 @@ class FeatureTests(FileFlowTestCase):
         self.assertIn("Files: 3", output)
         self.assertIn("large.txt", output)
         self.assertEqual(error, "")
+
+    def test_empty_files_cancel_and_delete(self):
+        blank = self.write("nested/blank.txt", b"")
+        full = self.write("full.txt", b"content")
+        self.assertEqual(empty.find_empty(self.folder), [blank])
+        self.assertEqual(self.invoke("empty", str(self.folder), "--delete")[0], 0)
+        self.assertTrue(blank.exists())
+        self.assertEqual(
+            self.invoke("empty", str(self.folder), "--delete", answer="yes")[0], 0
+        )
+        self.assertFalse(blank.exists())
+        self.assertTrue(full.exists())
 
 
 class DownloadHandler(BaseHTTPRequestHandler):
