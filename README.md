@@ -7,6 +7,12 @@ No external packages are needed.
 python main.py --help
 ```
 
+## Download
+
+```powershell
+python main.py download "https://example.com/file.zip" --output downloads
+```
+
 ## Organize
 
 ```powershell

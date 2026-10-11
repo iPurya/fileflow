@@ -3,7 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
-from features import analyzer, organizer
+from features import analyzer, downloader, organizer
 
 
 def positive_number(value):
@@ -26,6 +26,12 @@ def build_parser():
     )
     parser.add_argument("--version", action="version", version="FileFlow 0.1.0")
     commands = parser.add_subparsers(dest="command", required=True)
+    command = commands.add_parser("download", help="Download URLs or a URL list")
+    command.add_argument("urls", nargs="+", help="HTTP or HTTPS URLs")
+    command.add_argument(
+        "--output", type=Path, default=Path("downloads"), help="Destination folder"
+    )
+    command.set_defaults(handler=downloader.run)
     command = commands.add_parser("organize", help="Sort files into category folders")
     command.add_argument("folder", type=existing_folder)
     command.add_argument(

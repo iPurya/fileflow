@@ -2,11 +2,15 @@
 
 import io
 import tempfile
+import threading
+import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 from features import analyzer
+from features.downloader import download_file
 from main import main
 
 
@@ -39,7 +43,7 @@ class FeatureTests(FileFlowTestCase):
     def test_help_and_version(self):
         code, output, error = self.invoke("--help")
         self.assertEqual(code, 0)
-        for command in ("organize", "analyze"):
+        for command in ("download", "organize", "analyze"):
             self.assertIn(command, output)
             self.assertEqual(self.invoke(command, "--help")[0], 0)
         self.assertEqual(error, "")
@@ -98,6 +102,58 @@ class FeatureTests(FileFlowTestCase):
         self.assertIn("Files: 3", output)
         self.assertIn("large.txt", output)
         self.assertEqual(error, "")
+
+
+class DownloadHandler(BaseHTTPRequestHandler):
+    active = 0
+    maximum = 0
+    lock = threading.Lock()
+
+    def do_GET(self):
+        with self.lock:
+            DownloadHandler.active += 1
+            DownloadHandler.maximum = max(self.active, self.maximum)
+        try:
+            time.sleep(0.1)
+            if self.path == "/missing":
+                self.send_error(404)
+                return
+            content = b"payload:" + self.path.encode()
+            self.send_response(200)
+            length = len(content) + (20 if self.path == "/partial" else 0)
+            self.send_header("Content-Length", str(length))
+            self.end_headers()
+            self.wfile.write(content)
+        finally:
+            with self.lock:
+                DownloadHandler.active -= 1
+
+    def log_message(self, format, *args):
+        pass
+
+
+class DownloadTests(FileFlowTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), DownloadHandler)
+        cls.server_thread = threading.Thread(
+            target=cls.server.serve_forever, daemon=True
+        )
+        cls.server_thread.start()
+        cls.base_url = f"http://127.0.0.1:{cls.server.server_port}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.server_thread.join()
+
+    def test_single_download_keeps_existing_file(self):
+        existing = self.write("file.bin", b"keep")
+        saved = download_file(self.base_url + "/file.bin", self.folder)
+        self.assertEqual(existing.read_bytes(), b"keep")
+        self.assertEqual(saved.name, "file (2).bin")
+        self.assertEqual(saved.read_bytes(), b"payload:/file.bin")
 
 
 if __name__ == "__main__":

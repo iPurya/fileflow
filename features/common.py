@@ -1,6 +1,7 @@
 """Small helpers shared by file management features."""
 
 import os
+import re
 import stat
 from pathlib import Path
 
@@ -45,6 +46,20 @@ def unique_path(path, reserved=()):
         candidate = path.with_name(f"{path.stem} ({counter}){path.suffix}")
         counter += 1
     return candidate
+
+
+def validate_filename(name):
+    reserved = {"CON", "PRN", "AUX", "NUL"}
+    reserved.update(f"COM{number}" for number in range(1, 10))
+    reserved.update(f"LPT{number}" for number in range(1, 10))
+    if (
+        not name
+        or name in {".", ".."}
+        or re.search(r'[<>:"/\\|?*\x00-\x1f]', name)
+        or name.endswith((".", " "))
+        or name.split(".")[0].upper() in reserved
+    ):
+        raise ValueError(f"Invalid filename: {name!r}")
 
 
 def check_inside(path, folder):
