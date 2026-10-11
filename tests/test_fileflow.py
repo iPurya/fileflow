@@ -9,6 +9,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
 from features import analyzer
 from features.downloader import download_file
 from main import main
@@ -59,6 +60,11 @@ class FeatureTests(FileFlowTestCase):
         for arguments in cases:
             with self.subTest(arguments=arguments):
                 self.assertEqual(self.invoke(*arguments)[0], 2)
+
+    def test_download_needs_urls(self):
+        code, output, error = self.invoke("download", "--output", str(self.folder))
+        self.assertEqual(code, 1)
+        self.assertIn("Provide a URL", error)
 
     def test_organize_preview_and_apply(self):
         image = self.write("photo.JPG", b"new image")
@@ -180,6 +186,39 @@ class DownloadTests(FileFlowTestCase):
         self.assertLessEqual(DownloadHandler.maximum, 3)
         self.assertGreaterEqual(DownloadHandler.maximum, 2)
         self.assertEqual(len({path.read_bytes() for path in output.iterdir()}), 6)
+
+    def test_failed_download_cleans_partial_file_and_other_jobs_continue(self):
+        code, output, error = self.invoke(
+            "download",
+            self.base_url + "/partial",
+            self.base_url + "/good.bin",
+            "--output",
+            str(self.folder),
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("Failed:", error)
+        self.assertFalse((self.folder / "partial").exists())
+        self.assertTrue((self.folder / "good.bin").exists())
+
+    def test_http_error_and_unsupported_url(self):
+        self.assertEqual(
+            self.invoke(
+                "download", self.base_url + "/missing", "--output", str(self.folder)
+            )[0],
+            1,
+        )
+        self.assertEqual(
+            self.invoke(
+                "download", "file:///example.txt", "--output", str(self.folder)
+            )[0],
+            1,
+        )
+        self.assertEqual(list(self.folder.iterdir()), [])
+
+    def test_http_error_response_is_closed(self):
+        with self.assertRaises(HTTPError) as result:
+            download_file(self.base_url + "/missing", self.folder)
+        self.assertTrue(result.exception.fp.closed)
 
 
 if __name__ == "__main__":
