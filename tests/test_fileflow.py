@@ -39,7 +39,7 @@ class FeatureTests(FileFlowTestCase):
     def test_help_and_version(self):
         code, output, error = self.invoke("--help")
         self.assertEqual(code, 0)
-        for command in ("analyze",):
+        for command in ("organize", "analyze"):
             self.assertIn(command, output)
             self.assertEqual(self.invoke(command, "--help")[0], 0)
         self.assertEqual(error, "")

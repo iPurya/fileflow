@@ -3,7 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
-from features import analyzer
+from features import analyzer, organizer
 
 
 def positive_number(value):
@@ -26,6 +26,12 @@ def build_parser():
     )
     parser.add_argument("--version", action="version", version="FileFlow 0.1.0")
     commands = parser.add_subparsers(dest="command", required=True)
+    command = commands.add_parser("organize", help="Sort files into category folders")
+    command.add_argument("folder", type=existing_folder)
+    command.add_argument(
+        "--apply", action="store_true", help="Move files instead of only previewing"
+    )
+    command.set_defaults(handler=organizer.run)
     command = commands.add_parser(
         "analyze", help="Count file types and show largest files"
     )

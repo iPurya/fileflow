@@ -7,6 +7,13 @@ No external packages are needed.
 python main.py --help
 ```
 
+## Organize
+
+```powershell
+python main.py organize downloads
+python main.py organize downloads --apply
+```
+
 ## Analyze
 
 ```powershell

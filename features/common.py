@@ -37,6 +37,23 @@ def raise_scan_error(error):
     raise error
 
 
+def unique_path(path, reserved=()):
+    """Add a number when a filename is already taken."""
+    candidate = path
+    counter = 2
+    while candidate.exists() or is_link(candidate) or candidate in reserved:
+        candidate = path.with_name(f"{path.stem} ({counter}){path.suffix}")
+        counter += 1
+    return candidate
+
+
+def check_inside(path, folder):
+    """Keep destructive operations inside the selected folder."""
+    resolved = path.resolve()
+    if is_link(path) or resolved == folder or not resolved.is_relative_to(folder):
+        raise OSError(f"Unsafe or changed path: {path}")
+
+
 def format_size(size):
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if size < 1024 or unit == "TB":
