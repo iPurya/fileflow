@@ -71,6 +71,7 @@ class FeatureTests(FileFlowTestCase):
             ("analyze", str(self.folder / "missing")),
             ("analyze", str(self.folder), "--largest", "0"),
             ("download", "https://example.com/file", "--workers", "0"),
+            ("unused", str(self.folder), "--delete", "--archive", "backup.zip"),
         ]
         for arguments in cases:
             with self.subTest(arguments=arguments):
@@ -216,6 +217,30 @@ class FeatureTests(FileFlowTestCase):
             unused.archive_items([original], self.folder, self.folder / "backup.zip")
         self.assertTrue(original.exists())
 
+    def test_unused_delete_requires_confirmation(self):
+        old = self.write("old.txt")
+        self.make_old(old)
+        self.assertEqual(self.invoke("unused", str(self.folder), "--delete")[0], 0)
+        self.assertTrue(old.exists())
+        self.assertEqual(
+            self.invoke("unused", str(self.folder), "--delete", answer="yes")[0], 0
+        )
+        self.assertFalse(old.exists())
+        self.assertTrue(self.folder.exists())
+
+    def test_unused_deletes_inactive_folder_and_keeps_active_folder(self):
+        old = self.write("inactive/old.txt")
+        old_folder = old.parent
+        active = self.write("active/new.txt", b"keep")
+        self.make_old(old, old_folder)
+        code, output, error = self.invoke(
+            "unused", str(self.folder), "--delete", answer="yes"
+        )
+        self.assertEqual(code, 0, error)
+        self.assertFalse(old_folder.exists())
+        self.assertEqual(active.read_bytes(), b"keep")
+        self.assertTrue(self.folder.exists())
+
     def test_unused_archive_command_keeps_original_file(self):
         old = self.write("old.txt", b"save me")
         self.make_old(old)
@@ -228,6 +253,22 @@ class FeatureTests(FileFlowTestCase):
             with ZipFile(destination) as archive:
                 self.assertEqual(archive.read("old.txt"), b"save me")
         self.assertTrue(old.exists())
+
+    def test_unused_folder_changed_during_confirmation_is_kept(self):
+        old = self.write("inactive/old.txt")
+        self.make_old(old, old.parent)
+
+        def add_file(message):
+            self.write("inactive/new.txt", b"active content")
+            return "yes"
+
+        args = SimpleNamespace(folder=self.folder, days=180, delete=True, archive=None)
+        with patch("builtins.input", side_effect=add_file):
+            with redirect_stdout(io.StringIO()):
+                with self.assertRaises(OSError):
+                    unused.run(args)
+        self.assertTrue(old.exists())
+        self.assertEqual((old.parent / "new.txt").read_bytes(), b"active content")
 
     def test_archive_keeps_empty_subfolders(self):
         original = self.write("inactive/old.txt", b"saved")

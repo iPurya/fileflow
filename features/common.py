@@ -81,6 +81,22 @@ def check_inside(path, folder):
         raise OSError(f"Unsafe or changed path: {path}")
 
 
+def item_state(item):
+    """Record names and modification times before asking for deletion."""
+    if is_link(item):
+        raise OSError(f"Symbolic link found: {item}")
+    paths = [item]
+    if item.is_dir():
+        paths.extend(collect_items(item))
+    state = []
+    for path in paths:
+        if is_link(path):
+            raise OSError(f"Symbolic link found: {path}")
+        details = path.stat()
+        state.append((path, details.st_size, details.st_mtime_ns, details.st_ino))
+    return state
+
+
 def format_size(size):
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if size < 1024 or unit == "TB":

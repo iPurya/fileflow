@@ -67,6 +67,9 @@ def build_parser():
     action.add_argument(
         "--archive", type=Path, help="Create a ZIP outside the scanned folder"
     )
+    action.add_argument(
+        "--delete", action="store_true", help="Delete found items after confirmation"
+    )
     command.set_defaults(handler=unused.run)
     command = commands.add_parser(
         "duplicates", help="Find files with identical content"

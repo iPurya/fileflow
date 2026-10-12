@@ -32,6 +32,7 @@ python main.py analyze downloads --largest 5
 ```powershell
 python main.py unused downloads --days 180
 python main.py unused downloads --archive backups\unused.zip
+python main.py unused downloads --delete
 ```
 
 ## Duplicates
