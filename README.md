@@ -27,6 +27,13 @@ python main.py organize downloads --apply
 python main.py analyze downloads --largest 5
 ```
 
+## Duplicates
+
+```powershell
+python main.py duplicates downloads
+python main.py duplicates downloads --delete
+```
+
 ## Empty
 
 ```powershell

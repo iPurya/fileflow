@@ -3,7 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
-from features import analyzer, downloader, empty, organizer
+from features import analyzer, downloader, duplicates, empty, organizer
 
 
 def positive_number(value):
@@ -58,6 +58,16 @@ def build_parser():
         help="Number of largest files to display",
     )
     command.set_defaults(handler=analyzer.run)
+    command = commands.add_parser(
+        "duplicates", help="Find files with identical content"
+    )
+    command.add_argument("folder", type=existing_folder)
+    command.add_argument(
+        "--delete",
+        action="store_true",
+        help="Keep one copy and confirm deletion of the rest",
+    )
+    command.set_defaults(handler=duplicates.run)
     command = commands.add_parser("empty", help="Find zero-byte files")
     command.add_argument("folder", type=existing_folder)
     command.add_argument(

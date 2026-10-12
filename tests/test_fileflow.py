@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
-from features import analyzer, empty
+from features import analyzer, duplicates, empty
 from features.downloader import download_file
 from main import main
 
@@ -44,7 +44,7 @@ class FeatureTests(FileFlowTestCase):
     def test_help_and_version(self):
         code, output, error = self.invoke("--help")
         self.assertEqual(code, 0)
-        for command in ("download", "organize", "analyze", "empty"):
+        for command in ("download", "organize", "analyze", "duplicates", "empty"):
             self.assertIn(command, output)
             self.assertEqual(self.invoke(command, "--help")[0], 0)
         self.assertEqual(error, "")
@@ -109,6 +109,20 @@ class FeatureTests(FileFlowTestCase):
         self.assertIn("Files: 3", output)
         self.assertIn("large.txt", output)
         self.assertEqual(error, "")
+
+    def test_duplicates_use_content_not_name_or_only_size(self):
+        first = self.write("a.txt", b"same")
+        second = self.write("nested/different-name.bin", b"same")
+        distinct = self.write("different.txt", b"else")
+        self.assertEqual(duplicates.find_duplicates(self.folder), [[first, second]])
+        self.assertEqual(self.invoke("duplicates", str(self.folder), "--delete")[0], 0)
+        self.assertTrue(second.exists())
+        self.assertEqual(
+            self.invoke("duplicates", str(self.folder), "--delete", answer="yes")[0], 0
+        )
+        self.assertTrue(first.exists())
+        self.assertFalse(second.exists())
+        self.assertTrue(distinct.exists())
 
     def test_empty_files_cancel_and_delete(self):
         blank = self.write("nested/blank.txt", b"")
