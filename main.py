@@ -63,6 +63,10 @@ def build_parser():
     command.add_argument(
         "--days", type=positive_number, default=180, help="Minimum inactive days"
     )
+    action = command.add_mutually_exclusive_group()
+    action.add_argument(
+        "--archive", type=Path, help="Create a ZIP outside the scanned folder"
+    )
     command.set_defaults(handler=unused.run)
     command = commands.add_parser(
         "duplicates", help="Find files with identical content"

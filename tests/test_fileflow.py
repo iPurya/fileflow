@@ -12,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.error import HTTPError
+from zipfile import ZipFile
 from features import analyzer, duplicates, empty, unused
 from features.downloader import download_file
 from main import main
@@ -196,6 +197,46 @@ class FeatureTests(FileFlowTestCase):
         self.assertNotIn(old, items)
         self.assertNotIn(old_in_active.parent, items)
         self.assertNotIn(self.folder, items)
+
+    def test_archive_keeps_originals_and_existing_archives(self):
+        original = self.write("inactive/old.txt", b"archive content")
+        destination = self.folder / "backup.zip"
+        unused.archive_items([original], original.parent, destination)
+        with ZipFile(destination) as archive:
+            self.assertEqual(archive.read("old.txt"), b"archive content")
+        self.assertTrue(original.exists())
+        saved = destination.read_bytes()
+        with self.assertRaises(FileExistsError):
+            unused.archive_items([original], original.parent, destination)
+        self.assertEqual(destination.read_bytes(), saved)
+
+    def test_archive_inside_scanned_folder_is_rejected(self):
+        original = self.write("old.txt")
+        with self.assertRaises(ValueError):
+            unused.archive_items([original], self.folder, self.folder / "backup.zip")
+        self.assertTrue(original.exists())
+
+    def test_unused_archive_command_keeps_original_file(self):
+        old = self.write("old.txt", b"save me")
+        self.make_old(old)
+        with tempfile.TemporaryDirectory() as backup_folder:
+            destination = Path(backup_folder).resolve() / "unused.zip"
+            code, output, error = self.invoke(
+                "unused", str(self.folder), "--archive", str(destination)
+            )
+            self.assertEqual(code, 0, error)
+            with ZipFile(destination) as archive:
+                self.assertEqual(archive.read("old.txt"), b"save me")
+        self.assertTrue(old.exists())
+
+    def test_archive_keeps_empty_subfolders(self):
+        original = self.write("inactive/old.txt", b"saved")
+        (original.parent / "empty").mkdir()
+        with tempfile.TemporaryDirectory() as archive_folder:
+            destination = Path(archive_folder).resolve() / "backup.zip"
+            unused.archive_items([original.parent], self.folder, destination)
+            with ZipFile(destination) as archive:
+                self.assertIn("inactive/empty/", archive.namelist())
 
 
 class DownloadHandler(BaseHTTPRequestHandler):
