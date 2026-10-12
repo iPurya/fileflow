@@ -8,6 +8,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.error import HTTPError
 from features import analyzer, duplicates, empty
@@ -124,6 +125,21 @@ class FeatureTests(FileFlowTestCase):
         self.assertFalse(second.exists())
         self.assertTrue(distinct.exists())
 
+    def test_duplicate_changed_during_confirmation_is_kept(self):
+        first = self.write("a.txt", b"same")
+        second = self.write("b.txt", b"same")
+
+        def change_file(message):
+            first.write_bytes(b"changed")
+            return "yes"
+
+        with patch("builtins.input", side_effect=change_file):
+            with redirect_stdout(io.StringIO()):
+                with self.assertRaises(OSError):
+                    args = SimpleNamespace(folder=self.folder, delete=True)
+                    duplicates.run(args)
+        self.assertTrue(second.exists())
+
     def test_empty_files_cancel_and_delete(self):
         blank = self.write("nested/blank.txt", b"")
         full = self.write("full.txt", b"content")
@@ -135,6 +151,20 @@ class FeatureTests(FileFlowTestCase):
         )
         self.assertFalse(blank.exists())
         self.assertTrue(full.exists())
+
+    def test_file_filled_during_confirmation_is_kept(self):
+        blank = self.write("blank.txt", b"")
+
+        def fill_file(message):
+            blank.write_bytes(b"new content")
+            return "yes"
+
+        with patch("builtins.input", side_effect=fill_file):
+            with redirect_stdout(io.StringIO()):
+                with self.assertRaises(OSError):
+                    args = SimpleNamespace(folder=self.folder, delete=True)
+                    empty.run(args)
+        self.assertEqual(blank.read_bytes(), b"new content")
 
 
 class DownloadHandler(BaseHTTPRequestHandler):
