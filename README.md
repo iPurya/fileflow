@@ -27,6 +27,12 @@ python main.py organize downloads --apply
 python main.py analyze downloads --largest 5
 ```
 
+## Unused
+
+```powershell
+python main.py unused downloads --days 180
+```
+
 ## Duplicates
 
 ```powershell

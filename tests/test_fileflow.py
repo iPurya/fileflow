@@ -1,6 +1,7 @@
 """FileFlow checks using temporary folders and a local HTTP server."""
 
 import io
+import os
 import tempfile
 import threading
 import time
@@ -11,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.error import HTTPError
-from features import analyzer, duplicates, empty
+from features import analyzer, duplicates, empty, unused
 from features.downloader import download_file
 from main import main
 
@@ -40,12 +41,24 @@ class FileFlowTestCase(unittest.TestCase):
                     code = error.code
         return code, stdout.getvalue(), stderr.getvalue()
 
+    def make_old(self, *paths):
+        old = time.time() - 365 * 24 * 60 * 60
+        for path in paths:
+            os.utime(path, (old, old))
+
 
 class FeatureTests(FileFlowTestCase):
     def test_help_and_version(self):
         code, output, error = self.invoke("--help")
         self.assertEqual(code, 0)
-        for command in ("download", "organize", "analyze", "duplicates", "empty"):
+        for command in (
+            "download",
+            "organize",
+            "analyze",
+            "unused",
+            "duplicates",
+            "empty",
+        ):
             self.assertIn(command, output)
             self.assertEqual(self.invoke(command, "--help")[0], 0)
         self.assertEqual(error, "")
@@ -165,6 +178,24 @@ class FeatureTests(FileFlowTestCase):
                     args = SimpleNamespace(folder=self.folder, delete=True)
                     empty.run(args)
         self.assertEqual(blank.read_bytes(), b"new content")
+
+    def test_unused_folder_requires_inactive_descendants(self):
+        old = self.write("inactive/old.txt")
+        old_folder = old.parent
+        empty_folder = self.folder / "empty-folder"
+        empty_folder.mkdir()
+        old_in_active = self.write("active/old.txt")
+        self.write("active/new.txt")
+        self.make_old(
+            old, old_folder, empty_folder, old_in_active, old_in_active.parent
+        )
+        items = unused.find_unused(self.folder, 180)
+        self.assertIn(old_folder, items)
+        self.assertIn(empty_folder, items)
+        self.assertIn(old_in_active, items)
+        self.assertNotIn(old, items)
+        self.assertNotIn(old_in_active.parent, items)
+        self.assertNotIn(self.folder, items)
 
 
 class DownloadHandler(BaseHTTPRequestHandler):

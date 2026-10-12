@@ -3,7 +3,7 @@
 import argparse
 import sys
 from pathlib import Path
-from features import analyzer, downloader, duplicates, empty, organizer
+from features import analyzer, downloader, duplicates, empty, organizer, unused
 
 
 def positive_number(value):
@@ -58,6 +58,12 @@ def build_parser():
         help="Number of largest files to display",
     )
     command.set_defaults(handler=analyzer.run)
+    command = commands.add_parser("unused", help="Find inactive files and folders")
+    command.add_argument("folder", type=existing_folder)
+    command.add_argument(
+        "--days", type=positive_number, default=180, help="Minimum inactive days"
+    )
+    command.set_defaults(handler=unused.run)
     command = commands.add_parser(
         "duplicates", help="Find files with identical content"
     )
