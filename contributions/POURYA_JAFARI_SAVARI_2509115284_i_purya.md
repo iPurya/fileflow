@@ -1,0 +1,3 @@
+- Developed the main project concept and proposed additional features to improve the user experience.
+- Built the project foundation and implemented a flexible structure to simplify future updates and extensions.
+- Designed appropriate algorithms for each project feature.
