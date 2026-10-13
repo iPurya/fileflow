@@ -3,7 +3,8 @@
 import argparse
 import sys
 from pathlib import Path
-from features import analyzer, downloader, duplicates, empty, organizer, unused
+
+from features import analyzer, downloader, duplicates, empty, organizer, renamer, unused
 
 
 def positive_number(value):
@@ -26,6 +27,8 @@ def build_parser():
     )
     parser.add_argument("--version", action="version", version="FileFlow 0.1.0")
     commands = parser.add_subparsers(dest="command", required=True)
+
+    # File downloader
     command = commands.add_parser("download", help="Download URLs or a URL list")
     command.add_argument("urls", nargs="*", help="HTTP or HTTPS URLs")
     command.add_argument(
@@ -41,12 +44,16 @@ def build_parser():
         help="Maximum simultaneous downloads",
     )
     command.set_defaults(handler=downloader.run)
+
+    # File organizer
     command = commands.add_parser("organize", help="Sort files into category folders")
     command.add_argument("folder", type=existing_folder)
     command.add_argument(
         "--apply", action="store_true", help="Move files instead of only previewing"
     )
     command.set_defaults(handler=organizer.run)
+
+    # Folder analyzer
     command = commands.add_parser(
         "analyze", help="Count file types and show largest files"
     )
@@ -58,6 +65,8 @@ def build_parser():
         help="Number of largest files to display",
     )
     command.set_defaults(handler=analyzer.run)
+
+    # Unused files and folders
     command = commands.add_parser("unused", help="Find inactive files and folders")
     command.add_argument("folder", type=existing_folder)
     command.add_argument(
@@ -71,6 +80,8 @@ def build_parser():
         "--delete", action="store_true", help="Delete found items after confirmation"
     )
     command.set_defaults(handler=unused.run)
+
+    # Duplicate files
     command = commands.add_parser(
         "duplicates", help="Find files with identical content"
     )
@@ -81,12 +92,30 @@ def build_parser():
         help="Keep one copy and confirm deletion of the rest",
     )
     command.set_defaults(handler=duplicates.run)
+
+    # Empty files
     command = commands.add_parser("empty", help="Find zero-byte files")
     command.add_argument("folder", type=existing_folder)
     command.add_argument(
         "--delete", action="store_true", help="Delete empty files after confirmation"
     )
     command.set_defaults(handler=empty.run)
+
+    # Batch renamer
+    command = commands.add_parser(
+        "rename", help="Rename files using a filename pattern"
+    )
+    command.add_argument("folder", type=existing_folder)
+    command.add_argument(
+        "pattern", help="Pattern with {date}, {counter}, {name}, or {ext}"
+    )
+    command.add_argument(
+        "--start", type=positive_number, default=1, help="First counter value"
+    )
+    command.add_argument(
+        "--apply", action="store_true", help="Rename files instead of only previewing"
+    )
+    command.set_defaults(handler=renamer.run)
     return parser
 
 

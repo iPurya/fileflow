@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.error import HTTPError
 from zipfile import ZipFile
-from features import analyzer, duplicates, empty, unused
+from features import analyzer, duplicates, empty, renamer, unused
 from features.downloader import download_file
 from main import main
 
@@ -59,6 +59,7 @@ class FeatureTests(FileFlowTestCase):
             "unused",
             "duplicates",
             "empty",
+            "rename",
         ):
             self.assertIn(command, output)
             self.assertEqual(self.invoke(command, "--help")[0], 0)
@@ -278,6 +279,30 @@ class FeatureTests(FileFlowTestCase):
             unused.archive_items([original.parent], self.folder, destination)
             with ZipFile(destination) as archive:
                 self.assertIn("inactive/empty/", archive.namelist())
+
+    def test_rename_preview_collision_and_apply(self):
+        first = self.write("a.jpg", b"first")
+        second = self.write("b.jpg", b"second")
+        existing = self.write("nested/keep.txt")
+        self.assertEqual(self.invoke("rename", str(self.folder), "photo.png")[0], 0)
+        self.assertTrue(first.exists())
+        self.assertTrue(second.exists())
+        self.assertEqual(
+            self.invoke("rename", str(self.folder), "photo.png", "--apply")[0], 0
+        )
+        self.assertEqual((self.folder / "photo.png").read_bytes(), b"first")
+        self.assertEqual((self.folder / "photo (2).png").read_bytes(), b"second")
+        self.assertTrue(existing.exists())
+
+    def test_rename_variables_and_start_counter(self):
+        self.write("a.txt")
+        self.write("b.pdf")
+        plan = renamer.create_plan(
+            self.folder, "{name}_{date}_{counter:03d}.{ext}", start=5
+        )
+        self.assertTrue(plan[0][1].name.startswith("a_"))
+        self.assertTrue(plan[0][1].name.endswith("_005.txt"))
+        self.assertTrue(plan[1][1].name.endswith("_006.pdf"))
 
 
 class DownloadHandler(BaseHTTPRequestHandler):

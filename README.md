@@ -49,6 +49,12 @@ python main.py empty downloads
 python main.py empty downloads --delete
 ```
 
+## Rename
+
+```powershell
+python main.py rename pictures "photo_{counter}.png" --apply
+```
+
 ## Tests
 
 ```powershell
