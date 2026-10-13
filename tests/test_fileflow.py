@@ -13,7 +13,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.error import HTTPError
 from zipfile import ZipFile
+
 from features import analyzer, duplicates, empty, renamer, unused
+from features.common import is_link
 from features.downloader import download_file
 from main import main
 
@@ -280,6 +282,12 @@ class FeatureTests(FileFlowTestCase):
             with ZipFile(destination) as archive:
                 self.assertIn("inactive/empty/", archive.namelist())
 
+    def test_windows_reparse_point_is_detected(self):
+        path = self.write("regular.txt")
+        details = SimpleNamespace(st_file_attributes=1024)
+        with patch.object(Path, "lstat", return_value=details):
+            self.assertTrue(is_link(path))
+
     def test_rename_preview_collision_and_apply(self):
         first = self.write("a.jpg", b"first")
         second = self.write("b.jpg", b"second")
@@ -303,6 +311,25 @@ class FeatureTests(FileFlowTestCase):
         self.assertTrue(plan[0][1].name.startswith("a_"))
         self.assertTrue(plan[0][1].name.endswith("_005.txt"))
         self.assertTrue(plan[1][1].name.endswith("_006.pdf"))
+
+    def test_invalid_rename_does_not_change_files(self):
+        original = self.write("keep.txt", b"keep")
+        for pattern in ("../outside.txt", "{unknown}.txt", "CON.txt", "{name.bad}.txt"):
+            with self.subTest(pattern=pattern):
+                self.assertEqual(
+                    self.invoke("rename", str(self.folder), pattern, "--apply")[0], 1
+                )
+                self.assertEqual(original.read_bytes(), b"keep")
+
+    def test_symbolic_links_are_skipped(self):
+        original = self.write("original.txt")
+        link = self.folder / "link.txt"
+        try:
+            link.symlink_to(original)
+        except OSError:
+            self.skipTest("Symbolic links require additional Windows privileges")
+        self.assertEqual(analyzer.analyze(self.folder)[0], {".txt": 1})
+        self.assertEqual(duplicates.find_duplicates(self.folder), [])
 
 
 class DownloadHandler(BaseHTTPRequestHandler):
